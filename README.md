@@ -131,6 +131,19 @@ A: Yes. Open Settings and change the auto-stop time to `17:00`, or edit the conf
 **Q: Does it work on Windows 11?**
 A: Yes. Windows 10 and 11 are both fully supported.
 
+## Compliance Notice
+
+This tool is intended **solely** for legitimate personal office scenarios, such as:
+- Keeping your session active when briefly stepping away from your desk
+- Maintaining system availability during offline tasks
+
+**Strictly prohibited** uses include (but are not limited to):
+- Game botting / automated farming scripts
+- Circumventing corporate attendance tracking or desktop security controls
+- Batch automation to bypass system restrictions
+
+Any account bans, corporate disciplinary actions, or legal liabilities resulting from misuse are the **sole responsibility of the user**. The author assumes no liability for any unauthorized or illegal use of this software.
+
 ## License
 
 MIT
