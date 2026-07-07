@@ -203,10 +203,8 @@ NIF_ICON = 2
 NIF_TIP = 4
 NIF_STATE = 8
 NIF_INFO = 0x10
-NIF_GUID = 0x20
-NIIF_NONE = 0
 NIIF_INFO = 1
-NIS_HIDDEN = 1
+NIIF_NONE = 0
 
 # --- 窗口子类化 ---
 GWLP_WNDPROC = -4
@@ -757,7 +755,11 @@ class TrayApp:
     def __init__(self):
         self.config = Config()
         self.engine = SwitcherEngine(self.config)
-        self.engine.set_stop_callback(lambda: self._root.after(0, self._update_tray))
+        def _on_auto_stop():
+            self._update_tray()
+            stop_time = self.config.data.get("auto_stop_time", "18:00")
+            self._show_balloon("窗口切换器", "已到 %s，切换自动停止" % stop_time)
+        self.engine.set_stop_callback(lambda: self._root.after(0, _on_auto_stop))
         self._running = True
 
         # 创建图标文件
@@ -890,6 +892,17 @@ class TrayApp:
         self._nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP
         shell32.Shell_NotifyIconW(NIM_MODIFY, byref(self._nid))
 
+    def _show_balloon(self, title, message):
+        """弹出托盘气泡提示。"""
+        if not self._tray_added or not self._hwnd:
+            return
+        self._nid.uFlags = NIF_INFO
+        self._nid.dwInfoFlags = NIIF_INFO
+        self._nid.szInfoTitle = title
+        self._nid.szInfo = message
+        self._nid.uTimeoutOrVersion = 3000  # 3 秒
+        shell32.Shell_NotifyIconW(NIM_MODIFY, byref(self._nid))
+
     def _show_popup_menu(self):
         """在光标位置显示 Win32 右键弹出菜单。"""
         running = self.engine.running
@@ -968,11 +981,13 @@ class TrayApp:
         """开始切换。"""
         self.engine.start()
         self._update_tray()
+        self._show_balloon("窗口切换器", "窗口切换已启动")
 
     def _on_stop(self):
         """停止切换。"""
         self.engine.stop()
         self._update_tray()
+        self._show_balloon("窗口切换器", "窗口切换已停止")
 
     def _on_switch_now(self):
         """手动触发一次切换。"""
