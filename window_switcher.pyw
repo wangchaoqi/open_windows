@@ -26,6 +26,9 @@ import tkinter as tk
 from tkinter import simpledialog
 from pathlib import Path
 
+import logging
+from logging.handlers import RotatingFileHandler
+
 # 补充 wintypes 中缺失的指针大小整数类型
 if ctypes.sizeof(ctypes.c_void_p) == 8:
     LONG_PTR = ctypes.c_longlong
@@ -33,6 +36,41 @@ if ctypes.sizeof(ctypes.c_void_p) == 8:
 else:
     LONG_PTR = ctypes.c_long
     UINT_PTR = ctypes.c_ulong
+
+# =============================================================================
+# 日志系统
+# =============================================================================
+
+def _setup_logging():
+    """配置日志：文件轮转（500KB × 5 个备份）+ 控制台输出。"""
+    try:
+        script_dir = Path(sys.argv[0]).parent.resolve()
+    except Exception:
+        script_dir = Path.cwd()
+    log_path = script_dir / "switcher_log.txt"
+
+    logger = logging.getLogger("switcher")
+    logger.setLevel(logging.DEBUG)
+
+    # 文件 handler：轮转，最多 5 个备份
+    fh = RotatingFileHandler(
+        str(log_path), maxBytes=500 * 1024, backupCount=5, encoding="utf-8"
+    )
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    ))
+    logger.addHandler(fh)
+
+    # 控制台 handler：仅 WARNING 及以上
+    ch = logging.StreamHandler(sys.stderr)
+    ch.setLevel(logging.WARNING)
+    ch.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+    logger.addHandler(ch)
+
+    return logger
+
+log = _setup_logging()
 
 # =============================================================================
 # ICO 图标生成（纯 Python，无外部依赖）
@@ -500,6 +538,7 @@ class SwitcherEngine:
         """启动切换线程。"""
         if self.running:
             return
+        log.info("Switcher started")
         self.running = True
         self._stop_event.clear()
         self._thread = threading.Thread(
@@ -511,6 +550,7 @@ class SwitcherEngine:
         """停止切换线程。"""
         if not self.running:
             return
+        log.info("Switcher stopped")
         self.running = False
         self._stop_event.set()
         if self._thread and self._thread.is_alive():
@@ -528,8 +568,8 @@ class SwitcherEngine:
             try:
                 self._check_auto_stop()
                 self._do_switch_cycle()
-            except Exception:
-                pass
+            except Exception as e:
+                log.debug("Switch cycle error: %s", e)
 
             wait = random.uniform(
                 self.config.min_interval,
@@ -561,6 +601,7 @@ class SwitcherEngine:
                 return  # 今天已触发过
 
             self._auto_stop_triggered_date = today
+            log.info("Auto-stop triggered at %s", stop_time_str.strip())
             self.stop()
 
             # 通知托盘更新（通过 after 回调）
@@ -595,10 +636,12 @@ class SwitcherEngine:
         if threshold > 0:
             idle_sec = WindowManager.get_idle_seconds()
             if 0 <= idle_sec < threshold:
+                log.debug("Idle skip: user active %ds ago", idle_sec)
                 return  # 用户正在操作，不切
 
         windows = WindowManager.enum_visible_windows()
         if not windows:
+            log.debug("No visible windows found")
             return
 
         fg = WindowManager.get_foreground_window()
@@ -617,6 +660,7 @@ class SwitcherEngine:
                     target_hwnd, _ = random.choice(others)
             self._last_hwnd = target_hwnd
 
+        log.debug("Switched to: %s", target_title)
         WindowManager.switch_to_window(target_hwnd)
 
 
@@ -936,6 +980,7 @@ class TrayApp:
 
     def _on_exit(self):
         """退出应用。"""
+        log.info("Application exiting")
         self.engine.stop()
         self._cleanup()
         self._root.quit()
@@ -963,6 +1008,8 @@ def main():
         os.chdir(script_dir)
     except Exception:
         pass
+
+    log.info("Window Switcher starting (PID=%d)", os.getpid())
 
     # 确保 tkinter 根窗口在 Windows DPI 感知下正常
     try:

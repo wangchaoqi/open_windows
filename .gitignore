@@ -1,10 +1,14 @@
-# 运行时配置（每台机器不同）
+# 运行时配置
 switcher_config.json
 
-# Python
-__pycache__/
+# 日志
+switcher_log.txt
+switcher_log.txt.*
+
+# 测试缓存
+.pytest_cache/
 *.pyc
-*.pyo
+__pycache__/
 
 # 临时图标
 switcher_*.ico
