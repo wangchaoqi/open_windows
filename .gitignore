@@ -16,3 +16,4 @@ switcher_*.ico
 # IDE
 .vscode/
 .idea/
+dist/
